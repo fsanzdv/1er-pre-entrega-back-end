@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { io } from '../server/app.js'; 
 
 const router = Router();
 const productsFile = join(process.cwd(), 'products.json');
+
 
 const readFile = () => JSON.parse(readFileSync(productsFile, 'utf-8'));
 const writeFile = (data) => writeFileSync(productsFile, JSON.stringify(data, null, 2));
@@ -18,6 +20,7 @@ router.get('/', (req, res) => {
     res.json(products);
 });
 
+
 router.get('/:pid', (req, res) => {
     const products = readFile();
     const product = products.find(p => p.id === req.params.pid);
@@ -26,6 +29,7 @@ router.get('/:pid', (req, res) => {
     }
     res.json(product);
 });
+
 
 router.post('/', (req, res) => {
     const { title, description, code, price, stock, category, thumbnails } = req.body;
@@ -47,8 +51,13 @@ router.post('/', (req, res) => {
     };
     products.push(newProduct);
     writeFile(products);
+
+    
+    io.emit('actualizarProductos', newProduct);
+
     res.status(201).json(newProduct);
 });
+
 
 router.put('/:pid', (req, res) => {
     const { pid } = req.params;
@@ -69,6 +78,7 @@ router.put('/:pid', (req, res) => {
     res.json(products[index]);
 });
 
+
 router.delete('/:pid', (req, res) => {
     const { pid } = req.params;
     const products = readFile();
@@ -79,6 +89,10 @@ router.delete('/:pid', (req, res) => {
     }
 
     writeFile(filteredProducts);
+
+    
+    io.emit('eliminarProducto', pid);
+
     res.status(204).send();
 });
 
