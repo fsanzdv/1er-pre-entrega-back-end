@@ -1,99 +1,46 @@
 import { Router } from 'express';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { io } from '../server/app.js'; 
+import Product from '../models/Product.js';
+import mongoosePaginate from 'mongoose-paginate-v2';
+
+productSchema.plugin(mongoosePaginate);
+
+
+
 
 const router = Router();
-const productsFile = join(process.cwd(), 'products.json');
 
+router.get('/', async (req, res) => {
+    try {
+        const {
+            limit = 10,
+            page = 1,
+            sort,
+            query,
+        } = req.query;
 
-const readFile = () => JSON.parse(readFileSync(productsFile, 'utf-8'));
-const writeFile = (data) => writeFileSync(productsFile, JSON.stringify(data, null, 2));
+        const filter = query ? { $or: [{ title: new RegExp(query, 'i') }, { category: new RegExp(query, 'i') }] } : {};
 
+        const options = {
+            limit: parseInt(limit),
+            page: parseInt(page),
+            sort: sort === 'asc' ? { price: 1 } : sort === 'desc' ? { price: -1 } : undefined,
+        };
 
-router.get('/', (req, res) => {
-    const products = readFile();
-    const limit = parseInt(req.query.limit, 10);
-    if (limit) {
-        return res.json(products.slice(0, limit));
+        const result = await Product.paginate(filter, options);
+
+        res.json({
+            status: 'success',
+            payload: result.docs,
+            totalPages: result.totalPages,
+            prevPage: result.prevPage,
+            nextPage: result.nextPage,
+            page: result.page,
+            hasPrevPage: result.hasPrevPage,
+            hasNextPage: result.hasNextPage,
+            prevLink: result.hasPrevPage ? `/api/products?limit=${limit}&page=${result.prevPage}&sort=${sort}&query=${query}` : null,
+            nextLink: result.hasNextPage ? `/api/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
+        });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
     }
-    res.json(products);
 });
-
-
-router.get('/:pid', (req, res) => {
-    const products = readFile();
-    const product = products.find(p => p.id === req.params.pid);
-    if (!product) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-    res.json(product);
-});
-
-
-router.post('/', (req, res) => {
-    const { title, description, code, price, stock, category, thumbnails } = req.body;
-    if (!title || !description || !code || !price || !stock || !category) {
-        return res.status(400).json({ error: 'Todos los campos son obligatorios excepto thumbnails' });
-    }
-
-    const products = readFile();
-    const newProduct = {
-        id: (products.length + 1).toString(),
-        title,
-        description,
-        code,
-        price,
-        status: true,
-        stock,
-        category,
-        thumbnails: thumbnails || []
-    };
-    products.push(newProduct);
-    writeFile(products);
-
-    
-    io.emit('actualizarProductos', newProduct);
-
-    res.status(201).json(newProduct);
-});
-
-
-router.put('/:pid', (req, res) => {
-    const { pid } = req.params;
-    const updates = req.body;
-    const products = readFile();
-
-    const index = products.findIndex(p => p.id === pid);
-    if (index === -1) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-
-    if ('id' in updates) {
-        return res.status(400).json({ error: 'No se puede actualizar el ID' });
-    }
-
-    products[index] = { ...products[index], ...updates };
-    writeFile(products);
-    res.json(products[index]);
-});
-
-
-router.delete('/:pid', (req, res) => {
-    const { pid } = req.params;
-    const products = readFile();
-
-    const filteredProducts = products.filter(p => p.id !== pid);
-    if (filteredProducts.length === products.length) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-
-    writeFile(filteredProducts);
-
-    
-    io.emit('eliminarProducto', pid);
-
-    res.status(204).send();
-});
-
-export default router;

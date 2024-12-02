@@ -5,6 +5,10 @@ import router from '../routes/products.js';
 import cartsRouter from '../routes/carts.js';
 import viewsRouter from '../routes/views.js';
 import path from 'path';
+import connectDB from './db.js';
+
+connectDB();
+
 
 const app = express();
 const __dirname = path.resolve();
