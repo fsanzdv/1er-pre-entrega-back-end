@@ -1,46 +1,75 @@
-import { Router } from 'express';
-import Product from '../models/Product.js';
-import mongoosePaginate from 'mongoose-paginate-v2';
+const express = require('express');
+const router = express.Router();
+const ProductManager = require('../models/productManager.js');
 
-productSchema.plugin(mongoosePaginate);
+const productManager = new ProductManager('../server/products.json');
 
-
-
-
-const router = Router();
 
 router.get('/', async (req, res) => {
     try {
-        const {
-            limit = 10,
-            page = 1,
-            sort,
-            query,
-        } = req.query;
-
-        const filter = query ? { $or: [{ title: new RegExp(query, 'i') }, { category: new RegExp(query, 'i') }] } : {};
-
-        const options = {
-            limit: parseInt(limit),
-            page: parseInt(page),
-            sort: sort === 'asc' ? { price: 1 } : sort === 'desc' ? { price: -1 } : undefined,
-        };
-
-        const result = await Product.paginate(filter, options);
-
-        res.json({
-            status: 'success',
-            payload: result.docs,
-            totalPages: result.totalPages,
-            prevPage: result.prevPage,
-            nextPage: result.nextPage,
-            page: result.page,
-            hasPrevPage: result.hasPrevPage,
-            hasNextPage: result.hasNextPage,
-            prevLink: result.hasPrevPage ? `/api/products?limit=${limit}&page=${result.prevPage}&sort=${sort}&query=${query}` : null,
-            nextLink: result.hasNextPage ? `/api/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
-        });
+        const products = await productManager.getProducts();
+        res.json(products);
     } catch (error) {
-        res.status(500).json({ status: 'error', message: error.message });
+        res.status(500).json({ error: 'Error al obtener los productos' });
     }
 });
+
+
+router.get('/:id', async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id, 10);
+        const product = await productManager.getProductById(productId);
+        if (product) {
+            res.json(product);
+        } else {
+            res.status(404).json({ error: 'Producto no encontrado' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Error al obtener el producto' });
+    }
+});
+
+
+router.post('/', async (req, res) => {
+    try {
+        const newProduct = req.body;
+        const createdProduct = await productManager.addProduct(newProduct);
+        res.status(201).json(createdProduct);
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            res.status(400).json({ error: 'Datos inválidos', details: error.errors });
+        } else {
+            res.status(500).json({ error: 'Error al agregar el producto' });
+        }
+    }
+});
+
+
+
+router.put('/:id', async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id, 10);
+        const updatedData = req.body;
+        const updatedProduct = await productManager.updateProduct(productId, updatedData);
+        res.json(updatedProduct);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al actualizar el producto' });
+    }
+});
+
+
+router.delete('/:id', async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id, 10);
+        const success = await productManager.deleteProduct(productId);
+        if (success) {
+            res.status(204).send();
+        } else {
+            res.status(404).json({ error: 'Producto no encontrado' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Error al eliminar el producto' });
+    }
+});
+
+module.exports = router;

@@ -4,7 +4,7 @@ import Product from '../models/Product.js';
 
 const router = Router();
 
-// Crear un carrito
+
 router.post('/', async (req, res) => {
     try {
         const newCart = new Cart({ products: [] });
@@ -15,7 +15,7 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Obtener productos de un carrito
+
 router.get('/:cid', async (req, res) => {
     try {
         const cart = await Cart.findById(req.params.cid).populate('products.product');
@@ -27,7 +27,7 @@ router.get('/:cid', async (req, res) => {
     }
 });
 
-// Agregar producto al carrito
+
 router.post('/:cid/product/:pid', async (req, res) => {
     try {
         const cart = await Cart.findById(req.params.cid);
